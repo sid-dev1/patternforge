@@ -75,15 +75,32 @@ class AIWorkloadPatternValidator:
         self.data = data
         self.seed_value = seed_value
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate AI-inspired workload
         binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
+
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
 
         rng = random.Random(
             self.seed_value
@@ -100,9 +117,9 @@ class AIWorkloadPatternValidator:
                 ),
                 (
                     "RANDOM",
-                    lambda chunk:
+                    lambda current_offset:
                     self._validate_random_region(
-                        chunk,
+                        current_offset,
                         rng
                     )
                 ),
@@ -131,7 +148,36 @@ class AIWorkloadPatternValidator:
                 )
 
                 if validation_result is not None:
-                    return validation_result
+
+                    validation_result[
+                        "mismatch_index"
+                    ] = (
+                        len(mismatches) + 1
+                    )
+
+                    validation_result[
+                        "region_name"
+                    ] = region_name
+
+                    mismatches.append(
+                        validation_result
+                    )
+
+                    if fail_fast:
+
+                        return {
+                            "valid": False,
+
+                            "total_mismatches": 1,
+
+                            "workload_integrity_lost": (
+                                True
+                            ),
+
+                            "mismatches": (
+                                mismatches
+                            )
+                        }
 
                 offset += (
                     self._get_region_size(
@@ -140,8 +186,27 @@ class AIWorkloadPatternValidator:
                     )
                 )
 
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "workload_integrity_lost": True,
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
+            "workload_integrity_lost": False,
+
             "message": (
                 "AI workload pattern validated "
                 "successfully."
@@ -169,13 +234,14 @@ class AIWorkloadPatternValidator:
             if observed_value != expected_value:
 
                 return {
-                    "valid": False,
-                    "mismatch_offset": (
+                    "offset": (
                         offset + index
                     ),
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
@@ -208,13 +274,14 @@ class AIWorkloadPatternValidator:
             if observed_value != expected_value:
 
                 return {
-                    "valid": False,
-                    "mismatch_offset": (
+                    "offset": (
                         offset + index
                     ),
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
@@ -251,13 +318,14 @@ class AIWorkloadPatternValidator:
             if observed_value != expected_value:
 
                 return {
-                    "valid": False,
-                    "mismatch_offset": (
+                    "offset": (
                         offset + index
                     ),
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
@@ -294,13 +362,14 @@ class AIWorkloadPatternValidator:
             if observed_value != expected_value:
 
                 return {
-                    "valid": False,
-                    "mismatch_offset": (
+                    "offset": (
                         offset + index
                     ),
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )

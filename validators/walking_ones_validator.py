@@ -11,8 +11,13 @@ class WalkingOnesValidator:
         - bit-position transition validation
     """
 
-    validator_name = "WALKING_ONES_VALIDATOR"
-    supported_pattern = "WALKING_ONES"
+    validator_name = (
+        "WALKING_ONES_VALIDATOR"
+    )
+
+    supported_pattern = (
+        "WALKING_ONES"
+    )
 
     START_VALUE = 0x01
     MAX_BIT_POSITION = 8
@@ -38,16 +43,35 @@ class WalkingOnesValidator:
 
         self.data = data
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate walking-ones binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
 
-        expected_value = self.START_VALUE
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
+
+        expected_value = (
+            self.START_VALUE
+        )
 
         for offset, observed_value in enumerate(
             self.data
@@ -55,16 +79,37 @@ class WalkingOnesValidator:
 
             if observed_value != expected_value:
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": offset,
+                mismatch_entry = {
+                    "mismatch_index": (
+                        len(mismatches) + 1
+                    ),
+
+                    "offset": offset,
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
                 }
+
+                mismatches.append(
+                    mismatch_entry
+                )
+
+                if fail_fast:
+
+                    return {
+                        "valid": False,
+
+                        "total_mismatches": 1,
+
+                        "mismatches": (
+                            mismatches
+                        )
+                    }
 
             expected_value <<= 1
 
@@ -75,8 +120,23 @@ class WalkingOnesValidator:
                     self.START_VALUE
                 )
 
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
             "message": (
                 "Walking-ones pattern "
                 "validated successfully."

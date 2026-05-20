@@ -1,25 +1,35 @@
-from generators.ai_workload_pattern import (
-    AIWorkloadPatternGenerator
-)
+from generators.prbs7 import PRBS7Generator
+from file_io.binary_writer import BinaryWriter
+from validators.prbs7_validator import PRBS7Validator
+from file_io.binary_reader import BinaryReader
 
-from validators.ai_workload_pattern_validator import (
-    AIWorkloadPatternValidator
-)
-
-generator = AIWorkloadPatternGenerator(
-    size_in_bytes=256,
-    seed_value=1234
+'''
+generator = PRBS7Generator(
+    size_in_bytes=1024,
+    seed_value=0x5A
 )
 
 data = generator.generate()
 
-corrupted_data = bytearray(data)
+writer = BinaryWriter(
+    file_path="payloads/prbs7_payload.bin",
+    mode="wb"
+)
 
-corrupted_data[130] = 0xAA
+result = writer.write(data)
 
-validator = AIWorkloadPatternValidator(
-    data=bytes(corrupted_data),
-    seed_value=1234
+print(result)
+'''
+
+reader = BinaryReader(
+    file_path="payloads/prbs7_payload.bin"
+)
+
+captured_data = reader.read()
+
+validator = PRBS7Validator(
+    data=captured_data,
+    seed_value=0x5A
 )
 
 result = validator.validate()

@@ -51,35 +51,66 @@ class IncrementalValidator:
                 "seed_value must be an integer."
             )
 
-        if not isinstance(increment_value, int):
+        if not isinstance(
+            increment_value,
+            int
+        ):
             raise TypeError(
-                "increment_value must be an integer."
+                "increment_value must be "
+                "an integer."
             )
 
         if not (0 <= seed_value <= 255):
             raise ValueError(
-                "seed_value must be between 0 and 255."
+                "seed_value must be between "
+                "0 and 255."
             )
 
-        if not (0 <= increment_value <= 255):
+        if not (
+            0 <= increment_value <= 255
+        ):
             raise ValueError(
-                "increment_value must be between 0 and 255."
+                "increment_value must be "
+                "between 0 and 255."
             )
 
         self.data = data
-        self.seed_value = seed_value
-        self.increment_value = increment_value
 
-    def validate(self) -> dict:
+        self.seed_value = seed_value
+
+        self.increment_value = (
+            increment_value
+        )
+
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate incremental binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
 
-        expected_value = self.seed_value
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
+
+        expected_value = (
+            self.seed_value
+        )
 
         for offset, observed_value in enumerate(
             self.data
@@ -87,26 +118,60 @@ class IncrementalValidator:
 
             if observed_value != expected_value:
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": offset,
+                mismatch_entry = {
+                    "mismatch_index": (
+                        len(mismatches) + 1
+                    ),
+
+                    "offset": offset,
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
                 }
+
+                mismatches.append(
+                    mismatch_entry
+                )
+
+                if fail_fast:
+
+                    return {
+                        "valid": False,
+
+                        "total_mismatches": 1,
+
+                        "mismatches": (
+                            mismatches
+                        )
+                    }
 
             expected_value = (
                 expected_value
                 + self.increment_value
             ) % self.BYTE_LIMIT
 
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+            "total_mismatches": 0,
             "message": (
-                "Incremental pattern validated "
-                "successfully."
+                "Incremental pattern "
+                "validated successfully."
             )
         }

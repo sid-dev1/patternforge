@@ -52,20 +52,38 @@ class PRBS7Validator:
             1 <= seed_value <= self.MAX_REGISTER_VALUE
         ):
             raise ValueError(
-                "seed_value must be between 1 and 127."
+                "seed_value must be between "
+                "1 and 127."
             )
 
         self.data = data
         self.seed_value = seed_value
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate PRBS7 binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
+
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
 
         lfsr = self.seed_value
 
@@ -84,7 +102,10 @@ class PRBS7Validator:
                 )
 
                 feedback_bit = (
-                    ((lfsr >> 6) ^ (lfsr >> 5))
+                    (
+                        (lfsr >> 6)
+                        ^ (lfsr >> 5)
+                    )
                     & 0x01
                 )
 
@@ -98,21 +119,63 @@ class PRBS7Validator:
 
             if observed_byte != expected_byte:
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": (
+                mismatch_entry = {
+                    "mismatch_index": (
+                        len(mismatches) + 1
+                    ),
+
+                    "offset": (
                         byte_offset
                     ),
+
                     "expected_value": (
                         expected_byte
                     ),
+
                     "observed_value": (
                         observed_byte
                     )
                 }
 
+                mismatches.append(
+                    mismatch_entry
+                )
+
+                if fail_fast:
+
+                    return {
+                        "valid": False,
+
+                        "total_mismatches": 1,
+
+                        "synchronization_lost": True,
+
+                        "mismatches": (
+                            mismatches
+                        )
+                    }
+
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "synchronization_lost": True,
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
+            "synchronization_lost": False,
+
             "message": (
                 "PRBS7 pattern validated "
                 "successfully."

@@ -67,14 +67,31 @@ class CheckerboardValidator:
             ~self.base_pattern
         ) & self.BYTE_LIMIT
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate checkerboard binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
+
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
 
         alternating_patterns = (
             self.base_pattern,
@@ -93,21 +110,61 @@ class CheckerboardValidator:
 
             if observed_value != expected_value:
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": (
-                        offset
+                mismatch_entry = {
+                    "mismatch_index": (
+                        len(mismatches) + 1
                     ),
+
+                    "offset": offset,
+
                     "expected_value": (
                         expected_value
                     ),
+
                     "observed_value": (
                         observed_value
                     )
                 }
 
+                mismatches.append(
+                    mismatch_entry
+                )
+
+                if fail_fast:
+
+                    return {
+                        "valid": False,
+
+                        "total_mismatches": 1,
+
+                        "transition_integrity_lost": True,
+
+                        "mismatches": (
+                            mismatches
+                        )
+                    }
+
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "transition_integrity_lost": True,
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
+            "transition_integrity_lost": False,
+
             "message": (
                 "Checkerboard pattern "
                 "validated successfully."

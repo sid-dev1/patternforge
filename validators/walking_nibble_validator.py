@@ -46,14 +46,31 @@ class WalkingNibbleValidator:
 
         self.data = data
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate walking-nibble binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
+
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
 
         expected_pattern = (
             self.START_PATTERN
@@ -82,41 +99,64 @@ class WalkingNibbleValidator:
                 :remaining_bytes
             ]
 
-            if observed_chunk != expected_chunk:
+            for index in range(
+                min(
+                    len(observed_chunk),
+                    len(expected_chunk)
+                )
+            ):
 
-                mismatch_index = 0
+                observed_value = (
+                    observed_chunk[index]
+                )
 
-                for index in range(
-                    min(
-                        len(observed_chunk),
-                        len(expected_chunk)
+                expected_value = (
+                    expected_chunk[index]
+                )
+
+                if observed_value != expected_value:
+
+                    mismatch_entry = {
+                        "mismatch_index": (
+                            len(mismatches) + 1
+                        ),
+
+                        "offset": (
+                            offset + index
+                        ),
+
+                        "group_index": (
+                            offset // 2
+                        ),
+
+                        "expected_value": (
+                            expected_value
+                        ),
+
+                        "observed_value": (
+                            observed_value
+                        )
+                    }
+
+                    mismatches.append(
+                        mismatch_entry
                     )
-                ):
 
-                    if (
-                        observed_chunk[index]
-                        != expected_chunk[index]
-                    ):
+                    if fail_fast:
 
-                        mismatch_index = index
-                        break
+                        return {
+                            "valid": False,
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": (
-                        offset + mismatch_index
-                    ),
-                    "expected_value": (
-                        expected_chunk[
-                            mismatch_index
-                        ]
-                    ),
-                    "observed_value": (
-                        observed_chunk[
-                            mismatch_index
-                        ]
-                    )
-                }
+                            "total_mismatches": 1,
+
+                            "nibble_integrity_lost": (
+                                True
+                            ),
+
+                            "mismatches": (
+                                mismatches
+                            )
+                        }
 
             expected_pattern <<= (
                 self.NIBBLE_WIDTH_BITS
@@ -131,8 +171,27 @@ class WalkingNibbleValidator:
 
             offset += 2
 
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "nibble_integrity_lost": True,
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
+            "nibble_integrity_lost": False,
+
             "message": (
                 "Walking-nibble pattern "
                 "validated successfully."

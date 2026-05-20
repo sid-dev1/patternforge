@@ -33,6 +33,23 @@ class ColorBarPatternValidator:
 
     COLOR_WIDTH_BYTES = 3
 
+    COLOR_NAMES = (
+        "WHITE",
+        "YELLOW",
+        "CYAN",
+        "GREEN",
+        "MAGENTA",
+        "RED",
+        "BLUE",
+        "BLACK"
+    )
+
+    RGB_CHANNEL_NAMES = (
+        "RED_CHANNEL",
+        "GREEN_CHANNEL",
+        "BLUE_CHANNEL"
+    )
+
     def __init__(self, data: bytes):
         """
         Initialize validator configuration.
@@ -54,14 +71,31 @@ class ColorBarPatternValidator:
 
         self.data = data
 
-    def validate(self) -> dict:
+    def validate(
+        self,
+        fail_fast: bool = True
+    ) -> dict:
         """
         Validate RGB color bar binary pattern.
+
+        Args:
+            fail_fast (bool):
+                Stop validation immediately on
+                first mismatch.
+
+                If False, collect all mismatches.
 
         Returns:
             dict:
                 Structured validation result.
         """
+
+        if not isinstance(fail_fast, bool):
+            raise TypeError(
+                "fail_fast must be of type bool."
+            )
+
+        mismatches = []
 
         offset = 0
         color_index = 0
@@ -73,6 +107,14 @@ class ColorBarPatternValidator:
                     self.COLOR_BARS
                 )
             ]
+
+            expected_color_name = (
+                self.COLOR_NAMES[
+                    color_index % len(
+                        self.COLOR_NAMES
+                    )
+                ]
+            )
 
             remaining_bytes = (
                 len(self.data) - offset
@@ -87,41 +129,74 @@ class ColorBarPatternValidator:
                 offset + self.COLOR_WIDTH_BYTES
             ]
 
-            if observed_chunk != expected_chunk:
+            for index in range(
+                min(
+                    len(observed_chunk),
+                    len(expected_chunk)
+                )
+            ):
 
-                mismatch_index = 0
+                observed_value = (
+                    observed_chunk[index]
+                )
 
-                for index in range(
-                    min(
-                        len(observed_chunk),
-                        len(expected_chunk)
+                expected_value = (
+                    expected_chunk[index]
+                )
+
+                if observed_value != expected_value:
+
+                    mismatch_entry = {
+                        "mismatch_index": (
+                            len(mismatches) + 1
+                        ),
+
+                        "offset": (
+                            offset + index
+                        ),
+
+                        "color_index": (
+                            color_index
+                        ),
+
+                        "color_name": (
+                            expected_color_name
+                        ),
+
+                        "channel_name": (
+                            self.RGB_CHANNEL_NAMES[
+                                index
+                            ]
+                        ),
+
+                        "expected_value": (
+                            expected_value
+                        ),
+
+                        "observed_value": (
+                            observed_value
+                        )
+                    }
+
+                    mismatches.append(
+                        mismatch_entry
                     )
-                ):
 
-                    if (
-                        observed_chunk[index]
-                        != expected_chunk[index]
-                    ):
+                    if fail_fast:
 
-                        mismatch_index = index
-                        break
+                        return {
+                            "valid": False,
 
-                return {
-                    "valid": False,
-                    "mismatch_offset": (
-                        offset + mismatch_index
-                    ),
-                    "expected_value": (
-                        expected_chunk[
-                            mismatch_index
-                        ]
-                    ),
-                    "observed_value": (
-                        observed_chunk[
-                            mismatch_index
-                        ]
-                    )
-                }
+                            "total_mismatches": 1,
+
+                            "visual_integrity_lost": (
+                                True
+                            ),
+
+                            "mismatches": (
+                                mismatches
+                            )
+                        }
 
             offset += (
                 self.COLOR_WIDTH_BYTES
@@ -129,8 +204,27 @@ class ColorBarPatternValidator:
 
             color_index += 1
 
+        if len(mismatches) > 0:
+
+            return {
+                "valid": False,
+
+                "total_mismatches": (
+                    len(mismatches)
+                ),
+
+                "visual_integrity_lost": True,
+
+                "mismatches": mismatches
+            }
+
         return {
             "valid": True,
+
+            "total_mismatches": 0,
+
+            "visual_integrity_lost": False,
+
             "message": (
                 "Color bar pattern validated "
                 "successfully."
